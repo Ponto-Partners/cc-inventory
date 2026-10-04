@@ -67,7 +67,7 @@ function showLogin(needsSetup) {
   $("app").hidden = true; $("login").hidden = false; closeSheet();
   $("login-title").textContent = setupMode ? "Create the admin account" : "Inventory sign in";
   $("login-sub").textContent = setupMode ? "First time here. This account can add everyone else." : "Systems · Rentals · Repair";
-  $("setup-name-wrap").hidden = !setupMode;
+  $("setup-name-wrap").hidden = !setupMode; $("l-help").hidden = setupMode;
   $("l-pass").autocomplete = setupMode ? "new-password" : "current-password";
   $("l-go").textContent = setupMode ? "Create account" : "Sign in";
   $("l-err").hidden = true;

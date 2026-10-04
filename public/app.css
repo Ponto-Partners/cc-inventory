@@ -393,3 +393,4 @@ button,a,label,summary,select,input{touch-action:manipulation}
 .dz-line{margin:0}
 .dz-bar{height:8px;border-radius:99px;background:rgba(106,70,148,.18);overflow:hidden}
 .dz-bar i{display:block;height:100%;background:var(--brand-2);transition:width .2s}
+.login-help{margin:4px 0 0;text-align:center;font-size:15px;line-height:1.5;color:var(--muted)}
