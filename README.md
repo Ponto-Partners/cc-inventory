@@ -1,6 +1,10 @@
 # CC Medical Inventory
 
-A simple inventory and customer tracker for CC Medical's warehouse. It runs on Cloudflare:
+A simple inventory and customer tracker for CC Medical's warehouse.
+
+**Live at https://ccmedical.app** (also https://cc-medical-inventory.rciesco-bff.workers.dev). Code: github.com/Ponto-Partners/cc-inventory. Every push to `main` deploys automatically.
+
+It runs on Cloudflare:
 
 - **Cloudflare Worker** serves the app and its API
 - **Cloudflare D1** (Cloudflare's built-in database) stores items, customers, users and the button choices
@@ -11,7 +15,7 @@ A simple inventory and customer tracker for CC Medical's warehouse. It runs on C
 **At go-live:**
 1. Upgrade the Cloudflare account to Workers Paid.
 2. In `wrangler.toml`, change `PBKDF2_ITERATIONS = "20000"` to `"100000"`.
-3. Run `npx wrangler deploy`.
+3. Push to GitHub (it deploys itself), or run `npx wrangler deploy`.
 
 Nobody has to reset a password: each one is re-saved at full strength the next time that person signs in. Workers Paid also keeps 30 days of database restore points instead of 7.
 
@@ -68,7 +72,7 @@ Keep this folder in a private GitHub repository and let Cloudflare deploy every 
 Builds are included on the free plan (3,000 build minutes a month). The database setup (`schema.sql`) and the one-time import are still run once from a computer with `npx wrangler d1 execute …`; deploys never touch the data.
 
 ### Use your own domain (optional)
-In the Cloudflare dashboard: **Workers & Pages → cc-medical-inventory → Settings → Domains & Routes → Add → Custom domain**, for example `inventory.ccmedicalhs.com`. This works when ccmedicalhs.com's DNS is on Cloudflare.
+In the Cloudflare dashboard: **Workers & Pages → cc-medical-inventory → Settings → Domains & Routes → Add → Custom domain**, for example `ccmedical.app` (in use now) or `inventory.ccmedicalhs.com`. The domain's DNS has to be on Cloudflare. A new domain's security certificate takes a few minutes to issue; until then browsers show ERR_SSL_VERSION_OR_CIPHER_MISMATCH.
 
 ### Branding
 The app uses CC Medical's own logo files (`public/logo.svg` and `public/logo-white.svg`, from ccmedicalhs.com) and the brand colors from that logo, set at the top of `public/app.css`:
