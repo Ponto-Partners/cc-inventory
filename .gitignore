@@ -17,3 +17,4 @@ __pycache__/
 # CC Medical customer list used by the importer
 tools/customer_names.json
 CC_Medical_Import*.json
+!public/import-template.csv
