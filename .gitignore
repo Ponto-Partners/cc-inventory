@@ -1,0 +1,18 @@
+# Local Cloudflare state and dependencies
+.wrangler/
+node_modules/
+.dev.vars
+
+# Business data stays out of the repository (customer names, costs)
+*.xlsx
+*.xls
+*.csv
+import.sql
+backup*.sql
+
+# Python and OS clutter
+__pycache__/
+.DS_Store
+
+# CC Medical customer list used by the importer
+tools/customer_names.json

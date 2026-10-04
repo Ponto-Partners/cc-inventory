@@ -1,0 +1,19 @@
+name = "cc-medical-inventory"
+main = "src/worker.js"
+compatibility_date = "2025-09-01"
+
+# The page and its files. Anything not found here (like /api/...) goes to the Worker.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# Password hashing strength. 20000 while testing on the Workers Free plan (10 ms CPU per request).
+# At go-live on Workers Paid: change to "100000" and run `npx wrangler deploy`. Each person's
+# password is re-hashed at the stronger setting the next time they sign in; nobody has to reset.
+[vars]
+PBKDF2_ITERATIONS = "20000"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "cc-inventory"
+database_id = "f5dd7ddb-dbf4-40ec-b447-8e0ae8ef1fc0"   # from: npx wrangler d1 create cc-inventory

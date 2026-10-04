@@ -1,0 +1,10 @@
+[
+ {
+  "match": "\\bEXAMPLE GENERAL\\b",
+  "name": "Example General Hospital"
+ },
+ {
+  "match": "SAMPLE IMAGING",
+  "name": "Sample Imaging Center"
+ }
+]

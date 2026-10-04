@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
+<title>CC Medical Inventory</title>
+<meta name="theme-color" content="#4B2F6E">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="CC Inventory">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+
+<!-- SIGN IN -->
+<section id="login" class="login" hidden>
+  <div class="login-stack">
+  <img class="logo login-logo" src="/logo-white.svg" alt="CC Medical — Your Ultrasound Solution">
+  <div class="wordmark" hidden>CC Medical</div>
+  <form id="login-form" class="login-card" autocomplete="on" novalidate>
+    <h1 id="login-title">Inventory sign in</h1>
+    <p class="sub" id="login-sub">Systems · Rentals · Repair</p>
+    <label class="f" id="setup-name-wrap" hidden><span>Your name</span><input id="l-name" autocomplete="name"></label>
+    <label class="f"><span>Username</span><input id="l-user" autocomplete="username" autocapitalize="none" spellcheck="false"></label>
+    <label class="f"><span>Password</span><input id="l-pass" type="password" autocomplete="current-password"></label>
+    <p class="err" id="l-err" hidden></p>
+    <button class="btn primary big" id="l-go" type="submit">Sign in</button>
+  </form>
+  </div>
+</section>
+
+<!-- APP -->
+<div id="app" hidden>
+  <header class="top">
+    <div class="bar">
+      <img class="logo sm" src="/logo.svg" alt="CC Medical">
+      <div class="wordmark sm" hidden>CC Medical</div>
+      <span class="appname">Inventory <i>/</i> Product History <i>/</i> CRM Tool Set</span>
+      <div class="hdr-actions">
+      <button class="adminbtn" id="adminbtn" type="button" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8.2-8 9-4.6-.8-8-4.5-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg>Admin</button>
+      <button class="userbtn" id="userbtn" type="button" aria-haspopup="true"><span id="u-name"></span><svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button>
+      </div>
+      <div class="menu" id="usermenu" hidden>
+        <button type="button" id="m-pass">Change password</button>
+        <button type="button" id="m-out">Sign out</button>
+      </div>
+    </div>
+    <div class="tabband">
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="receive" id="tab-receive"><svg class="ticon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 17v3h16v-3"/></svg>Receive New Inventory</button>
+      <button role="tab" data-tab="inventory" id="tab-inventory"><svg class="ticon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg>Current Inventory<span class="count" id="c-items">0</span></button>
+      <button role="tab" data-tab="serials" id="tab-serials"><svg class="ticon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Product History<span class="count" id="c-ser">0</span></button>
+      <button role="tab" data-tab="customers" id="tab-customers"><svg class="ticon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M18 14.8c2 .7 3.2 2.5 3.5 5.2"/></svg>Customers<span class="count" id="c-cust">0</span></button>
+    </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section id="v-receive"><div id="wiz"></div></section>
+
+    <section id="v-inventory" hidden>
+      <div class="stats" id="inv-stats"></div>
+      <div class="toolbar">
+        <div class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="i-q" type="search" placeholder="Search tag, serial, part #, model…" enterkeyhint="search" autocapitalize="none" spellcheck="false"></div>
+        <button type="button" class="btn primary scanbtn" id="i-scan" aria-label="Scan a tag or serial"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 9v6M11 9v6M14 9v6M17 9v6"/></svg><span>Scan</span></button>
+        <div class="quick" id="i-quick"></div>
+        <details class="more"><summary>More filters</summary>
+          <div class="filters">
+            <select id="f-cat" aria-label="Category"></select>
+            <select id="f-mfr" aria-label="Manufacturer"></select>
+            <select id="f-status" aria-label="Status"></select>
+            <select id="f-loc" aria-label="Location"></select>
+            <select id="f-cust" aria-label="Customer"></select>
+          </div>
+        </details>
+      </div>
+      <div class="resline"><span id="i-res"></span><button class="linkbtn" id="i-clear" type="button" hidden>Clear filters</button></div>
+      <div class="list" id="i-list"></div>
+    </section>
+
+    <section id="v-serials" hidden>
+      <h2>Product History</h2>
+      <p class="sub">Every unit that has come through with a serial number, and everything that's happened to it.</p>
+      <div class="toolbar">
+        <div class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="s-q" type="search" placeholder="Search serial, model, part #…" enterkeyhint="search" autocapitalize="none" spellcheck="false"></div>
+        <button type="button" class="btn primary scanbtn" id="s-scan" aria-label="Scan a serial number"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 9v6M11 9v6M14 9v6M17 9v6"/></svg><span>Scan</span></button>
+      </div>
+      <div class="resline"><span id="s-res"></span></div>
+      <div class="list" id="s-list"></div>
+    </section>
+
+    <section id="v-customers" hidden>
+      <div class="toolbar row2">
+        <div class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="c-q" type="search" placeholder="Search name, phone, facility…" enterkeyhint="search"></div>
+        <button class="btn primary" id="c-add" type="button">+ Add customer</button>
+      </div>
+      <div class="resline"><span id="c-res"></span></div>
+      <div class="list" id="c-list"></div>
+    </section>
+
+    <section id="v-users" hidden>
+      <h2>Admin · User access</h2>
+      <p class="sub">Everyone who can sign in. <b>Admins</b> can add and remove access. <b>Standard</b> users can do everything else.</p>
+      <div class="list" id="u-list"></div>
+      <form class="panel" id="u-add" novalidate>
+        <h3>Add a user</h3>
+        <div class="grid2">
+          <label class="f"><span>Name</span><input id="nu-name" placeholder="Maria Lopez"></label>
+          <label class="f"><span>Username</span><input id="nu-user" autocapitalize="none" spellcheck="false" placeholder="maria"></label>
+          <label class="f"><span>Temporary password</span><input id="nu-pass" type="text" placeholder="8+ characters"></label>
+          <div class="f"><span>Role</span><div class="seg2" id="nu-role"><button type="button" data-v="standard" aria-pressed="true">Standard</button><button type="button" data-v="admin" aria-pressed="false">Admin</button></div></div>
+        </div>
+        <button class="btn primary" type="submit">Add user</button>
+      </form>
+    </section>
+  </main>
+
+  <!-- Phone navigation: thumb-reach bar with a center Scan button -->
+  <nav class="botnav" aria-label="Sections">
+    <button type="button" data-tab="receive"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 17v3h16v-3"/></svg><span>Receive</span></button>
+    <button type="button" data-tab="inventory"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg><span>Inventory</span></button>
+    <button type="button" class="botscan" id="b-scan" aria-label="Scan a tag or serial"><i><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 9v6M11 9v6M14 9v6M17 9v6"/></svg></i><span>Scan</span></button>
+    <button type="button" data-tab="serials"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>History</span></button>
+    <button type="button" data-tab="customers"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M18 14.8c2 .7 3.2 2.5 3.5 5.2"/></svg><span>Customers</span></button>
+  </nav>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="sheet" id="sheet" role="dialog" aria-modal="true" hidden></aside>
+<div class="toast" id="toast" role="status" hidden></div>
+<div class="netbar" id="netbar" role="status" hidden>No signal. Changes can&rsquo;t be saved until the phone is back on Wi-Fi.</div>
+<div class="scanner" id="scanner" hidden></div>
+<div id="print-area" aria-hidden="true"></div>
+<style id="print-size"></style>
+
+<script src="/app.js"></script>
+</body>
+</html>
