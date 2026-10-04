@@ -61,6 +61,24 @@ async function api(path, opts = {}) {
 const run = async (fn) => { try { return await fn(); } catch (e) { toast(esc(e.message), true); } };
 
 /* ---------- sign in ---------- */
+// Show/hide eye on password boxes.
+const EYE = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_OFF = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.1 3.9M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.6 9.6 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
+function eyes(root = document) {
+  root.querySelectorAll('input[type="password"]:not([data-eye])').forEach((inp) => {
+    inp.dataset.eye = "1";
+    const w = document.createElement("span"); w.className = "pw";
+    inp.parentNode.insertBefore(w, inp); w.appendChild(inp);
+    const b = document.createElement("button"); b.type = "button"; b.className = "pw-eye";
+    const set = (show) => { inp.type = show ? "text" : "password"; b.innerHTML = show ? EYE_OFF : EYE; b.setAttribute("aria-label", show ? "Hide password" : "Show password"); b.setAttribute("aria-pressed", show ? "true" : "false"); };
+    set(false); inp._hide = () => set(false);
+    b.addEventListener("mousedown", (e) => e.preventDefault()); // keep the phone keyboard open
+    b.onclick = (e) => { e.preventDefault(); set(inp.type === "password"); inp.focus({ preventScroll: true }); };
+    w.appendChild(b);
+  });
+}
+eyes($("login"));
+
 let setupMode = false;
 function showLogin(needsSetup) {
   setupMode = !!needsSetup;
@@ -70,7 +88,7 @@ function showLogin(needsSetup) {
   $("setup-name-wrap").hidden = !setupMode; $("l-help").hidden = setupMode;
   $("l-pass").autocomplete = setupMode ? "new-password" : "current-password";
   $("l-go").textContent = setupMode ? "Create account" : "Sign in";
-  $("l-err").hidden = true;
+  $("l-err").hidden = true; if ($("l-pass")._hide) $("l-pass")._hide();
   setTimeout(() => (setupMode ? $("l-name") : $("l-user")).focus(), 50);
 }
 $("login-form").addEventListener("submit", async (e) => {
@@ -94,6 +112,7 @@ $("m-pass").onclick = () => openSheet(`<div class="sheet-head"><div><h3>Change p
     <label class="f"><span>Current password</span><input id="pw-cur" type="password" autocomplete="current-password"></label>
     <label class="f"><span>New password</span><input id="pw-new" type="password" autocomplete="new-password" placeholder="8+ characters"></label>
     <button class="btn primary" type="submit">Save new password</button></form>`, "pw", () => {
+  eyes($("sheet"));
   $("pw-form").onsubmit = (e) => { e.preventDefault(); run(async () => { await api("/password", { method: "POST", body: { current: $("pw-cur").value, password: $("pw-new").value } }); closeSheet(); toast("Password changed"); }); };
 });
 
