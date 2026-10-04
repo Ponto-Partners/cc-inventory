@@ -8,7 +8,7 @@ It runs on Cloudflare:
 
 - **Cloudflare Worker** serves the app and its API
 - **Cloudflare D1** (Cloudflare's built-in database) stores items, customers, users and the button choices
-- **Username + password sign-in**. Passwords are salted and hashed (PBKDF2). Sessions last 30 days. Five wrong tries lock that account for 10 minutes.
+- **Username (or email address) + password sign-in**. Passwords are salted and hashed (PBKDF2). Sessions last 30 days. Five wrong tries lock that account for 10 minutes.
 
 **Plans: Workers Free while testing, Workers Paid ($5 a month) at go-live.** The free plan allows 10 ms of CPU per request. A full-strength password check takes about 18 ms, so while on the free plan the app hashes passwords at 20,000 rounds (about 4 ms) instead of 100,000. That setting is `PBKDF2_ITERATIONS` in `wrangler.toml`.
 

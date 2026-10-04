@@ -115,7 +115,7 @@ function validNewPassword(pw) {
   if (pw.length < 8) fail(400, "Passwords need at least 8 characters.");
 }
 function validUsername(u) {
-  if (!/^[a-zA-Z0-9._-]{2,40}$/.test(u)) fail(400, "Usernames use 2–40 letters, numbers, dots, dashes or underscores.");
+  if (!/^[a-zA-Z0-9._+@-]{2,80}$/.test(u)) fail(400, "Use a username or an email address (letters, numbers, dots, dashes, underscores and @; no spaces).");
 }
 
 /* ---------- options ---------- */
@@ -176,7 +176,7 @@ async function api(req, env, url) {
   if (path === "/api/setup" && method === "POST") {
     const n = await env.DB.prepare(`SELECT COUNT(*) AS n FROM users`).first();
     if (n && n.n > 0) fail(403, "Setup is already done. Sign in instead.");
-    const username = str(body.username, 40), name = str(body.name, 80) || username, password = String(body.password || "");
+    const username = str(body.username, 80), name = str(body.name, 80) || username, password = String(body.password || "");
     validUsername(username); validNewPassword(password);
     const { hash, salt } = await hashPassword(password, null, ITER);
     const r = await env.DB.prepare(`INSERT INTO users (username, name, role, pw_hash, pw_salt, created_at) VALUES (?, ?, 'admin', ?, ?, ?)`)
@@ -186,7 +186,7 @@ async function api(req, env, url) {
   }
 
   if (path === "/api/login" && method === "POST") {
-    const username = str(body.username, 40), password = String(body.password || "");
+    const username = str(body.username, 80), password = String(body.password || "");
     const u = await env.DB.prepare(`SELECT * FROM users WHERE username = ?`).bind(username).first();
     const badLogin = () => fail(401, "That username and password don't match.");
     if (!u || !u.active) { await hashPassword(password, null, ITER); badLogin(); }
@@ -543,7 +543,7 @@ async function api(req, env, url) {
   }
   if (path === "/api/users" && method === "POST") {
     adminOnly();
-    const username = str(body.username, 40), name = str(body.name, 80) || username, password = String(body.password || "");
+    const username = str(body.username, 80), name = str(body.name, 80) || username, password = String(body.password || "");
     const role = body.role === "admin" ? "admin" : "standard";
     validUsername(username); validNewPassword(password);
     if (await env.DB.prepare(`SELECT 1 FROM users WHERE username = ?`).bind(username).first()) fail(409, "That username is taken.");

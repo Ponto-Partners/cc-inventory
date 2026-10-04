@@ -29,7 +29,7 @@
     <h1 id="login-title">Inventory sign in</h1>
     <p class="sub" id="login-sub">Systems · Rentals · Repair</p>
     <label class="f" id="setup-name-wrap" hidden><span>Your name</span><input id="l-name" autocomplete="name"></label>
-    <label class="f"><span>Username</span><input id="l-user" autocomplete="username" autocapitalize="none" spellcheck="false"></label>
+    <label class="f"><span>Username or email</span><input id="l-user" autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false"></label>
     <label class="f"><span>Password</span><input id="l-pass" type="password" autocomplete="current-password"></label>
     <p class="err" id="l-err" hidden></p>
     <button class="btn primary big" id="l-go" type="submit">Sign in</button>
@@ -117,7 +117,7 @@
         <h3>Add a user</h3>
         <div class="grid2">
           <label class="f"><span>Name</span><input id="nu-name" placeholder="Maria Lopez"></label>
-          <label class="f"><span>Username</span><input id="nu-user" autocapitalize="none" spellcheck="false" placeholder="maria"></label>
+          <label class="f"><span>Username or email</span><input id="nu-user" inputmode="email" autocapitalize="none" spellcheck="false" placeholder="maria or maria@ccmedicalhs.com"></label>
           <label class="f"><span>Temporary password</span><input id="nu-pass" type="text" placeholder="8+ characters"></label>
           <div class="f"><span>Role</span><div class="seg2" id="nu-role"><button type="button" data-v="standard" aria-pressed="true">Standard</button><button type="button" data-v="admin" aria-pressed="false">Admin</button></div></div>
         </div>
