@@ -747,40 +747,65 @@ async function impFromCSV(text, fileName) {
 }
 const hexOf = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
 
+// The drop box shows the file it's holding: name, size, what's in it, then progress and the result.
+let impBusy = false;
+const FILE_ICON = '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/><path d="M8 13h8M8 17h5"/></svg>';
+const fmtSize = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB");
+function impShow(state) { // state: {file, kind: ready|already|bad|busy|done, line, detail, pct}
+  const z = $("imp-drop"), card = $("imp-card"), m = $("imp-msg");
+  z.className = "dropzone" + (state ? " has-file is-" + state.kind : "");
+  $("imp-empty").hidden = !!state; card.hidden = !state;
+  m.hidden = !(state && state.detail); m.innerHTML = state && state.detail ? state.detail : "";
+  m.classList.toggle("bad", !!state && state.kind === "bad");
+  if (!state) { card.innerHTML = ""; return; }
+  const badge = { ready: "Ready to import", already: "Already imported", bad: "Needs fixing", busy: "Importing…", done: "Imported" }[state.kind];
+  card.innerHTML = `<div class="dz-file">${FILE_ICON}<div><b>${esc(state.file.name)}</b><small>${fmtSize(state.file.size)} · added ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</small></div><span class="dz-badge">${badge}</span></div>
+    ${state.line ? `<p class="dz-line">${state.line}</p>` : ""}
+    ${state.kind === "busy" ? `<div class="dz-bar"><i style="width:${state.pct || 0}%"></i></div>` : ""}
+    <div class="actions">${state.kind === "ready" ? `<button class="btn primary" type="button" id="imp-go">Import</button>` : ""}
+      ${state.kind !== "busy" ? `<label class="btn" for="imp-file">${state.kind === "done" || state.kind === "already" ? "Import another file" : "Choose a different file"}</label><button class="btn ghost" type="button" id="imp-clear">Clear</button>` : ""}</div>`;
+  if ($("imp-go")) $("imp-go").onclick = impRun;
+  if ($("imp-clear")) $("imp-clear").onclick = () => { impData = null; impShow(null); };
+}
 async function impLoad(f) {
-  const m = $("imp-msg"), go = $("imp-go"); m.hidden = false; go.hidden = true; impData = null; m.classList.remove("bad");
+  if (impBusy) { toast("An import is running. Wait for it to finish.", true); return; }
+  impData = null;
   const name = f.name || "file", lower = name.toLowerCase();
   try {
-    if (/\.(xlsx|xls|numbers)$/.test(lower)) throw new Error("Save the spreadsheet as CSV first (in Excel: File → Save As → CSV UTF-8), then drop that file here.");
+    if (/\.(xlsx|xls|numbers)$/.test(lower)) throw new Error("This is a spreadsheet file. Save it as CSV first (in Excel: File → Save As → CSV UTF-8), then drop that file here.");
     const text = await f.text(); let d;
     if (lower.endsWith(".json")) {
       d = JSON.parse(text); if (d.format !== "cc-medical-import-1" || !Array.isArray(d.items)) throw new Error("That isn't an import file.");
       d.errors = [];
     } else d = await impFromCSV(text, name);
     if (d.errors.length) {
-      m.classList.add("bad");
-      m.innerHTML = `<b>${d.errors.length} line${d.errors.length === 1 ? "" : "s"} to fix first. Nothing was imported.</b><br>` + d.errors.slice(0, 8).map(esc).join("<br>") + (d.errors.length > 8 ? `<br>…and ${d.errors.length - 8} more.` : "");
+      impShow({ file: f, kind: "bad", line: `<b>${d.errors.length} line${d.errors.length === 1 ? "" : "s"} to fix first.</b> Nothing was imported.`,
+        detail: d.errors.slice(0, 8).map(esc).join("<br>") + (d.errors.length > 8 ? `<br>…and ${d.errors.length - 8} more.` : "") });
       return;
     }
     if (!d.items.length) throw new Error("No rows to import in that file.");
-    impData = d;
-    m.textContent = `${esc(name)}: ${d.items.length.toLocaleString()} records, ${d.customers.length} customers, ${d.serials.length.toLocaleString()} serial numbers. Tap Import to load them.`;
-    go.hidden = false;
-  } catch (e) { m.classList.add("bad"); m.textContent = e instanceof SyntaxError ? "That file couldn't be read." : e.message; }
+    const have = new Set(D.items.map((i) => i.id.toUpperCase()));
+    const already = d.items.filter((i) => have.has(String(i.tag).toUpperCase())).length, fresh = d.items.length - already;
+    const plural = (n, w) => `${n.toLocaleString()} ${w}${n === 1 ? "" : "s"}`;
+    const what = [plural(d.items.length, "record"), d.customers.length && plural(d.customers.length, "customer"), d.serials.length && plural(d.serials.length, "serial number")].filter(Boolean).join(" · ");
+    if (!fresh) { impShow({ file: f, kind: "already", line: `${what}.<br><b>All ${d.items.length.toLocaleString()} records are already in the app.</b> Nothing to import.` }); return; }
+    impData = Object.assign(d, { file: f, what });
+    impShow({ file: f, kind: "ready", line: `${what}.${already ? `<br><b>${fresh.toLocaleString()} new</b>; ${already.toLocaleString()} already in the app will be skipped.` : ""}` });
+  } catch (e) { impShow({ file: f, kind: "bad", line: esc(e instanceof SyntaxError ? "That file couldn't be read." : e.message) }); }
 }
 $("imp-file").onchange = (e) => { const f = e.target.files && e.target.files[0]; if (f) impLoad(f); e.target.value = ""; };
 { // drag and drop onto the import box
   const z = $("imp-drop");
-  ["dragenter", "dragover"].forEach((ev) => z.addEventListener(ev, (e) => { e.preventDefault(); z.classList.add("over"); }));
-  ["dragleave", "dragend"].forEach((ev) => z.addEventListener(ev, () => z.classList.remove("over")));
+  ["dragenter", "dragover"].forEach((ev) => z.addEventListener(ev, (e) => { e.preventDefault(); if (!impBusy) z.classList.add("over"); }));
+  ["dragleave", "dragend"].forEach((ev) => z.addEventListener(ev, (e) => { if (!z.contains(e.relatedTarget)) z.classList.remove("over"); }));
   z.addEventListener("drop", (e) => { e.preventDefault(); z.classList.remove("over"); const f = e.dataTransfer && e.dataTransfer.files[0]; if (f) impLoad(f); });
   // a file dropped anywhere else shouldn't make the browser leave the app
   window.addEventListener("dragover", (e) => { if (e.dataTransfer && [...e.dataTransfer.types].includes("Files")) e.preventDefault(); });
   window.addEventListener("drop", (e) => { if (!z.contains(e.target)) e.preventDefault(); });
 }
-$("imp-go").onclick = async () => {
-  const d = impData; if (!d) return;
-  const go = $("imp-go"), m = $("imp-msg"); go.disabled = true;
+async function impRun() {
+  const d = impData; if (!d || impBusy) return;
+  impBusy = true;
   const at = new Date().toISOString(); let added = 0;
   const parts = [{ customers: d.customers }];
   for (let i = 0; i < d.items.length; i += 100) parts.push({ items: d.items.slice(i, i + 100) });
@@ -788,16 +813,19 @@ $("imp-go").onclick = async () => {
   for (let i = 0; i < d.options.length; i += 500) parts.push({ options: d.options.slice(i, i + 500) });
   try {
     for (let i = 0; i < parts.length; i++) {
-      m.textContent = `Importing… ${Math.round((i / parts.length) * 100)}%`;
+      impShow({ file: d.file, kind: "busy", line: `${d.what}.`, pct: Math.round((i / parts.length) * 100) });
       const r = await api("/import", { method: "POST", body: { at, ...parts[i] } });
       added += r.added || 0;
     }
-    m.textContent = added ? `Done. ${added.toLocaleString()} new entries loaded.` : "Done. Everything in this file was already loaded.";
-    go.hidden = true; impData = null;
+    impData = null;
     await load(true);
-  } catch (e) { m.textContent = `Stopped: ${e.message} Tap Import to continue; finished parts are kept.`; }
-  go.disabled = false;
-};
+    impShow({ file: d.file, kind: "done", line: added ? `<b>Done.</b> ${added.toLocaleString()} new entries loaded (records, history, serial numbers and buttons).` : "<b>Done.</b> Everything in this file was already loaded." });
+    toast(added ? "Import finished." : "Nothing new in that file.");
+  } catch (e) {
+    impShow({ file: d.file, kind: "ready", line: `<b>Stopped:</b> ${esc(e.message)} Tap Import to continue; finished parts are kept.` });
+  }
+  impBusy = false;
+}
 
 async function renderUsers() {
   const r = await run(() => api("/users")); if (!r) return;

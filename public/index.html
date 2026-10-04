@@ -127,13 +127,15 @@
         <h3>Import inventory</h3>
         <p class="hint">Add many records at once from a CSV (Excel: File → Save As → CSV UTF-8) or the <span class="mono">.json</span> import file. Columns: Manufacturer, Model, Category, Condition, Part number, Serial, Cost, Date of manufacture, Bin, Status, Customer, Notes. Only Model or Serial is required. Safe to run again: anything already loaded is skipped. <a href="/import-template.csv" download>Download the template</a></p>
         <div class="dropzone" id="imp-drop">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="M7 8l5-5 5 5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>
-          <span>Drag a CSV or import file here</span>
-          <label class="btn" for="imp-file">or choose a file</label>
+          <div class="dz-empty" id="imp-empty">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="M7 8l5-5 5 5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>
+            <span class="dz-text">Drag a CSV or import file here</span>
+            <label class="btn" for="imp-file">or choose a file</label>
+          </div>
+          <div class="dz-card" id="imp-card" hidden></div>
         </div>
         <input type="file" id="imp-file" accept=".csv,.txt,.json,text/csv,application/json" hidden>
-        <p class="hint" id="imp-msg" role="status" hidden></p>
-        <button class="btn primary" type="button" id="imp-go" hidden>Import</button>
+        <div class="hint" id="imp-msg" role="status" aria-live="polite" hidden></div>
       </div>
     </section>
   </main>

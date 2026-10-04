@@ -372,7 +372,24 @@ button,a,label,summary,select,input{touch-action:manipulation}
 /* import drop zone */
 .dropzone{display:grid;justify-items:center;gap:8px;text-align:center;padding:22px 16px;margin:12px 0;border:2px dashed var(--line);border-radius:var(--r);color:var(--muted);background:var(--surface);transition:border-color .12s,background .12s}
 .dropzone.over{border-color:var(--brand-2);background:var(--brand-soft);color:var(--brand-deep)}
-.dropzone span{font-weight:600}
+.dz-text{font-weight:600}
 #imp-msg.bad{color:var(--bad)}
-@media (hover:none){.dropzone > span{display:none}} /* phones: no dragging, just the button */
+@media (hover:none){.dz-text{display:none}} /* phones: no dragging, just the button */
 #imp a{color:var(--brand-2);font-weight:600}
+.dz-empty{display:grid;justify-items:center;gap:8px}
+.dropzone.has-file{border-style:solid;justify-items:stretch;text-align:left;color:var(--ink)}
+.dropzone.is-ready,.dropzone.is-busy{border-color:var(--brand-2);background:var(--brand-soft)}
+.dropzone.is-done,.dropzone.is-already{border-color:var(--ok,#1E7B4C);background:var(--ok-soft,#E6F4EC)}
+.dropzone.is-bad{border-color:var(--bad);background:var(--bad-soft)}
+.dz-card{display:grid;gap:10px}
+.dz-file{display:flex;align-items:center;gap:12px;min-width:0}
+.dz-file > svg{flex:none;color:var(--brand-2)}
+.dz-file > div{min-width:0;flex:1}
+.dz-file b{display:block;overflow-wrap:anywhere}
+.dz-file small{color:var(--muted)}
+.dz-badge{flex:none;font:600 13px var(--body);padding:4px 10px;border-radius:99px;background:var(--brand-2);color:#fff;white-space:nowrap}
+.is-done .dz-badge,.is-already .dz-badge{background:var(--ok,#1E7B4C)}
+.is-bad .dz-badge{background:var(--bad)}
+.dz-line{margin:0}
+.dz-bar{height:8px;border-radius:99px;background:rgba(106,70,148,.18);overflow:hidden}
+.dz-bar i{display:block;height:100%;background:var(--brand-2);transition:width .2s}
