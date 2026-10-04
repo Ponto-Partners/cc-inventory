@@ -1,6 +1,6 @@
 # Local Cloudflare state and dependencies
 .wrangler/
-node_modules/
+node_modules
 .dev.vars
 
 # Business data stays out of the repository (customer names, costs)
@@ -16,3 +16,4 @@ __pycache__/
 
 # CC Medical customer list used by the importer
 tools/customer_names.json
+CC_Medical_Import*.json

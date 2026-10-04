@@ -195,12 +195,14 @@ The list that turns hospital names in the INFO column into customers is CC Medic
    ```
    One row per spreadsheet row: the original columns (grey) beside what the app will store (yellow). Rows that need a person are marked **CHECK** with the reason. The **Models** sheet lists every model with its manufacturer and counts; the **Customers** sheet lists the customers made from INFO notes.
 2. **Fix** the CHECK rows and anything else that's wrong, in the yellow columns only.
-3. **Make the SQL**
+3. **Make the import file**
    ```
-   python3 tools/import_inventory.py sql Import_Review.xlsx import.sql
+   python3 tools/import_inventory.py json Import_Review.xlsx CC_Medical_Import.json
    ```
    It refuses to run if a row has a status, cost or date it can't use, and lists the rows to fix.
-4. **Load it** with `npx wrangler d1 execute cc-inventory --remote --file=import.sql`. Running it twice is safe; rows already loaded are skipped.
+4. **Load it:** in the app, an admin taps **Admin**, then **Import spreadsheet data**, chooses `CC_Medical_Import.json` and taps **Import**. It takes a few seconds. Running it twice is safe; anything already loaded is skipped.
+
+   (Command-line alternative: `python3 tools/import_inventory.py sql Import_Review.xlsx import.sql`, then `npx wrangler d1 execute cc-inventory --remote --file=import.sql`.)
 
 The manufacturer written in the untitled column beside a shelf space's first row (GE on A1–A3, Philips on A4, B1 and B2) is applied to every unit stored in that space, unless MODULE names a different maker; rows where the model suggests a different maker than the shelf are marked CHECK.
 

@@ -652,6 +652,41 @@ $("u-add").onsubmit = (e) => { e.preventDefault(); run(async () => {
   await api("/users", { method: "POST", body: { name: $("nu-name").value, username: $("nu-user").value, password: $("nu-pass").value, role: newRole } });
   toast(`Added ${esc($("nu-user").value)}. Give them their password.`); ["nu-name", "nu-user", "nu-pass"].forEach((id) => ($(id).value = "")); renderUsers();
 }); };
+// One-time spreadsheet import, sent in small parts so each request stays quick.
+let impData = null;
+$("imp-file").onchange = async (e) => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  const m = $("imp-msg"); m.hidden = false; $("imp-go").hidden = true;
+  try {
+    const d = JSON.parse(await f.text());
+    if (d.format !== "cc-medical-import-1" || !Array.isArray(d.items)) throw new Error();
+    impData = d;
+    m.textContent = `${d.items.length.toLocaleString()} records, ${d.customers.length} customers, ${d.serials.length.toLocaleString()} serial numbers, ${d.options.length} buttons. Tap Import to load them.`;
+    $("imp-go").hidden = false;
+  } catch { impData = null; m.textContent = "That isn't an import file. Choose CC_Medical_Import.json."; }
+  e.target.value = "";
+};
+$("imp-go").onclick = async () => {
+  const d = impData; if (!d) return;
+  const go = $("imp-go"), m = $("imp-msg"); go.disabled = true;
+  const at = new Date().toISOString(); let added = 0;
+  const parts = [{ customers: d.customers }];
+  for (let i = 0; i < d.items.length; i += 100) parts.push({ items: d.items.slice(i, i + 100) });
+  for (let i = 0; i < d.serials.length; i += 300) parts.push({ serials: d.serials.slice(i, i + 300) });
+  for (let i = 0; i < d.options.length; i += 500) parts.push({ options: d.options.slice(i, i + 500) });
+  try {
+    for (let i = 0; i < parts.length; i++) {
+      m.textContent = `Importing… ${Math.round((i / parts.length) * 100)}%`;
+      const r = await api("/import", { method: "POST", body: { at, ...parts[i] } });
+      added += r.added || 0;
+    }
+    m.textContent = added ? `Done. ${added.toLocaleString()} new entries loaded.` : "Done. Everything in this file was already loaded.";
+    go.hidden = true; impData = null;
+    await load(true);
+  } catch (e) { m.textContent = `Stopped: ${e.message} Tap Import to continue; finished parts are kept.`; }
+  go.disabled = false;
+};
+
 async function renderUsers() {
   const r = await run(() => api("/users")); if (!r) return;
   $("u-list").innerHTML = r.users.map((u) => `<div class="urow" data-uid="${u.id}"><div class="who"><b>${esc(u.name || u.username)}</b><div><span class="mono">${esc(u.username)}</span> · ${u.role === "admin" ? "Admin" : "Standard"}${u.active ? "" : " · <b style=\"color:var(--bad)\">No access</b>"}</div></div>

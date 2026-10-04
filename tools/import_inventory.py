@@ -10,6 +10,9 @@ Step 2 (sql):     python3 tools/import_inventory.py sql Import_Review.xlsx impor
     Reads the (corrected) review workbook and writes SQL for:
     npx wrangler d1 execute cc-inventory --remote --file=import.sql
 
+Step 2, simpler (json): python3 tools/import_inventory.py json Import_Review.xlsx CC_Medical_Import.json
+    Same import as a file an admin uploads in the app: Admin > Import spreadsheet data.
+
 Needs: Python 3.9+ and openpyxl (pip install openpyxl).
 Re-running the SQL is safe: rows already imported are skipped.
 """
@@ -563,14 +566,54 @@ def write_sql(rows, dst, when=None):
     return {"records": len(rows), "customers": len(cust_id), "serials": len(by_serial), "options": len([o for o in opts if o[1]])}
 
 
+def write_json(rows, dst):
+    """The same import as write_sql, as a file an admin uploads on the app's Admin page."""
+    by_serial = defaultdict(list)
+    for r in rows:
+        if r["Serial"]:
+            by_serial[r["Serial"]].append(r)
+    serials = []
+    for s, rs in sorted(by_serial.items()):
+        open_rs = [r for r in rs if r["Status"] not in CLOSED]
+        latest = (open_rs or rs)[-1]
+        serials.append({"serial": s, "manufacturer": latest["Manufacturer"], "model": latest["Model"],
+                        "part_number": latest["Part number"], "category": latest["Category"],
+                        "dom": next((r["DOM"] for r in rs if r["DOM"]), ""), "times": len(rs), "last_item_id": latest["Tag"]})
+    opts = set()
+    for r in rows:
+        opts.add(("manufacturer", r["Manufacturer"], ""))
+        opts.add(("model", r["Model"], r["Manufacturer"]))
+        opts.add(("category", r["Category"], ""))
+        opts.add(("condition", r["Condition"], ""))
+        for b in r["Bin"].split("/"):
+            opts.add(("location", b.strip(), ""))
+    data = {
+        "format": "cc-medical-import-1",
+        "generated": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+        "customers": sorted({r["Customer"] for r in rows if r["Customer"]}),
+        "items": [{"tag": r["Tag"], "name": " ".join(x for x in (r["Manufacturer"], r["Model"]) if x) or r["Category"],
+                   "category": r["Category"], "cond": r["Condition"], "manufacturer": r["Manufacturer"], "model": r["Model"],
+                   "part_number": r["Part number"], "serial": r["Serial"], "cost": r["Cost ($)"], "dom": r["DOM"], "row": r["Row"],
+                   "location": r["Bin"], "customer": r["Customer"], "status": r["Status"], "notes": r["Notes"]} for r in rows],
+        "serials": serials,
+        "options": [list(o) for o in sorted(o for o in opts if o[1])],
+    }
+    with open(dst, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, separators=(",", ":"), default=str)
+    return {"records": len(data["items"]), "customers": len(data["customers"]), "serials": len(serials), "options": len(data["options"])}
+
+
 if __name__ == "__main__":
-    if len(sys.argv) != 4 or sys.argv[1] not in ("review", "sql"):
+    if len(sys.argv) != 4 or sys.argv[1] not in ("review", "sql", "json"):
         sys.exit(__doc__)
     if sys.argv[1] == "review":
         rows = build_rows(sys.argv[2])
         write_review(rows, sys.argv[3])
         flagged = sum(1 for r in rows if r["Check"])
         print(f"Wrote {sys.argv[3]}: {len(rows)} rows, {flagged} marked CHECK.")
+    elif sys.argv[1] == "json":
+        stats = write_json(read_review(sys.argv[2]), sys.argv[3])
+        print(f"Wrote {sys.argv[3]}: {stats}")
     else:
         stats = write_sql(read_review(sys.argv[2]), sys.argv[3])
         print(f"Wrote {sys.argv[3]}: {stats}")

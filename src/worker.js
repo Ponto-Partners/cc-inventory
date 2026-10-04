@@ -489,6 +489,53 @@ async function api(req, env, url) {
   }
 
   /* ----- users (admin) ----- */
+  // One-time load of the spreadsheet import (admin only). The admin page sends the import file
+  // made by tools/import_inventory.py in small parts. Safe to repeat: anything already there is skipped.
+  if (path === "/api/import" && method === "POST") {
+    adminOnly();
+    const t = /^\d{4}-\d\d-\d\dT[\d:.]+Z$/.test(String(body.at || "")) ? body.at : nowIso();
+    const by = "Spreadsheet import";
+    const soft = (f, v, dflt) => { try { return f(v); } catch { return dflt; } };
+    const arr = (v, max) => { if (v == null) return []; if (!Array.isArray(v) || v.length > max) fail(400, "That import part is too large."); return v; };
+    const stmts = [];
+    for (const name0 of arr(body.customers, 500)) {
+      const name = str(name0, 120); if (!name) continue;
+      const id = "c_" + (await sha256(name.toLowerCase())).slice(0, 16);
+      stmts.push(env.DB.prepare(`INSERT INTO customers (id, name, type, facility, phone, email, address, notes, created_at, updated_at)
+        SELECT ?, ?, '', '', '', '', '', 'Added by the spreadsheet import', ?, ? WHERE NOT EXISTS (SELECT 1 FROM customers WHERE name = ? COLLATE NOCASE)`).bind(id, name, t, t, name));
+    }
+    for (const r of arr(body.items, 200)) {
+      const tag = str(r.tag, 40); if (!/^CC-[A-Z0-9-]+$/.test(tag)) fail(400, "An import record has a bad tag number.");
+      const serial = str(r.serial, 80), status = str(r.status, 40), loc = str(r.location, 40), row = parseInt(r.row, 10) || 0;
+      const cust = str(r.customer, 120);
+      stmts.push(env.DB.prepare(`INSERT OR IGNORE INTO items (id, kind, name, category, cond, manufacturer, model, part_number, serial, ref, cost, dom, source,
+        qty, location, customer_id, status, problems, notes, received_by, received_at, updated_at)
+        VALUES (?, 'stock', ?, ?, ?, ?, ?, ?, ?, '', ?, ?, ?, 1, ?, ${cust ? "(SELECT id FROM customers WHERE name = ? COLLATE NOCASE LIMIT 1)" : "?"}, ?, '', ?, ?, ?, ?)`)
+        .bind(tag, str(r.name, 200), str(r.category, 80), str(r.cond, 80), str(r.manufacturer, 80), str(r.model, 120), str(r.part_number, 80), serial,
+          soft(money, r.cost, null), soft(domStr, r.dom, ""), "import:" + row, loc, cust || null, status, str(r.notes, 2000), by, t, t));
+      const what = `Imported from Inventory_Ultrasound.xlsx, row ${row} (${status}${loc ? ", bin " + loc : ""})`;
+      stmts.push(env.DB.prepare(`INSERT INTO history (item_id, at, by, what) SELECT ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM history WHERE item_id = ? AND what = ?)`).bind(tag, t, by, what, tag, what));
+      if (serial) stmts.push(env.DB.prepare(`INSERT INTO serial_events (serial, at, by, item_id, kind, what) SELECT ?, ?, ?, ?, 'stock', ? WHERE NOT EXISTS (SELECT 1 FROM serial_events WHERE item_id = ? AND what = ?)`).bind(serial, t, by, tag, what, tag, what));
+    }
+    for (const s of arr(body.serials, 400)) {
+      const serial = str(s.serial, 80); if (!serial) continue;
+      stmts.push(env.DB.prepare(`INSERT OR IGNORE INTO serials (serial, manufacturer, model, part_number, category, dom, times_received, first_seen, last_seen, last_item_id) VALUES (?,?,?,?,?,?,?,?,?,?)`)
+        .bind(serial, str(s.manufacturer, 80), str(s.model, 120), str(s.part_number, 80), str(s.category, 80), soft(domStr, s.dom, ""), Math.max(1, parseInt(s.times, 10) || 1), t, t, str(s.last_item_id, 40) || null));
+    }
+    const KINDS_OK = ["manufacturer", "model", "category", "condition", "location"];
+    for (const o of arr(body.options, 600)) {
+      const [kind, value, parent] = Array.isArray(o) ? o : [];
+      if (!KINDS_OK.includes(kind) || !str(value)) continue;
+      stmts.push(env.DB.prepare(`INSERT OR IGNORE INTO options (kind, value, parent, created_at) VALUES (?,?,?,?)`).bind(kind, str(value, 120), str(parent, 120), t));
+    }
+    let added = 0;
+    for (let i = 0; i < stmts.length; i += 400) {
+      const res = await env.DB.batch(stmts.slice(i, i + 400));
+      for (const x of res) added += (x.meta && x.meta.changes) || 0;
+    }
+    return json({ ok: true, added });
+  }
+
   if (path === "/api/users" && method === "GET") {
     adminOnly();
     const r = await env.DB.prepare(`SELECT id, username, name, role, active FROM users ORDER BY name COLLATE NOCASE`).all();
