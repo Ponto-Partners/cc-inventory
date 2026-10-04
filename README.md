@@ -201,12 +201,21 @@ The list that turns hospital names in the INFO column into customers is CC Medic
 2. **Fix** the CHECK rows and anything else that's wrong, in the yellow columns only.
 3. **Make the import file**
    ```
-   python3 tools/import_inventory.py json Import_Review.xlsx CC_Medical_Import.json
+   python3 tools/import_inventory.py csv Import_Review.xlsx CC_Medical_Inventory.csv
    ```
-   It refuses to run if a row has a status, cost or date it can't use, and lists the rows to fix.
-4. **Load it:** in the app, an admin taps **Admin**, then **Import spreadsheet data**, chooses `CC_Medical_Import.json` and taps **Import**. It takes a few seconds. Running it twice is safe; anything already loaded is skipped.
+   (or `json … CC_Medical_Import.json`; both load the same records). It refuses to run if a row has a status, cost or date it can't use, and lists the rows to fix.
+4. **Load it:** in the app, an admin taps **Admin** and drags the file onto **Import inventory** (or taps **choose a file**), then taps **Import**. It takes a few seconds. Running it twice is safe; anything already loaded is skipped.
 
    (Command-line alternative: `python3 tools/import_inventory.py sql Import_Review.xlsx import.sql`, then `npx wrangler d1 execute cc-inventory --remote --file=import.sql`.)
+
+### Adding more inventory from a CSV later
+
+**Admin → Import inventory** takes any CSV with a header row (**Download the template** there). Columns, any order, any capitalization: Tag, Manufacturer, Model, Category, Condition, Part number, Serial, Cost, Date of manufacture, Bin, Status, Customer, Notes, Quantity. Only Model or Serial (or Manufacturer, Part number or Category) is needed; blank Status means In stock.
+
+- The app checks every line first and imports nothing until all of them are good, listing the lines to fix (bad status, cost, date, or a serial Excel turned into a number like `2.86E+24`).
+- Lines without a tag get one made from their contents, so importing the same file again skips them.
+- Customers named in the Customer column are added if new; models, manufacturers and bins become buttons.
+- Excel tip: format serial and part-number columns as **Text** before typing, or Excel may shorten long numbers. Save with **File → Save As → CSV UTF-8**. An .xlsx can't be dropped in directly.
 
 The manufacturer written in the untitled column beside a shelf space's first row (GE on A1–A3, Philips on A4, B1 and B2) is applied to every unit stored in that space, unless MODULE names a different maker; rows where the model suggests a different maker than the shelf are marked CHECK.
 

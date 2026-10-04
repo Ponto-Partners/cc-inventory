@@ -652,20 +652,132 @@ $("u-add").onsubmit = (e) => { e.preventDefault(); run(async () => {
   await api("/users", { method: "POST", body: { name: $("nu-name").value, username: $("nu-user").value, password: $("nu-pass").value, role: newRole } });
   toast(`Added ${esc($("nu-user").value)}. Give them their password.`); ["nu-name", "nu-user", "nu-pass"].forEach((id) => ($(id).value = "")); renderUsers();
 }); };
-// One-time spreadsheet import, sent in small parts so each request stays quick.
+/* =====================================================================
+   IMPORT — CSV (opens in Excel) or the .json import file, by button or drag and drop.
+   Sent in small parts so each request stays quick. Safe to repeat.
+   ===================================================================== */
 let impData = null;
-$("imp-file").onchange = async (e) => {
-  const f = e.target.files && e.target.files[0]; if (!f) return;
-  const m = $("imp-msg"); m.hidden = false; $("imp-go").hidden = true;
-  try {
-    const d = JSON.parse(await f.text());
-    if (d.format !== "cc-medical-import-1" || !Array.isArray(d.items)) throw new Error();
-    impData = d;
-    m.textContent = `${d.items.length.toLocaleString()} records, ${d.customers.length} customers, ${d.serials.length.toLocaleString()} serial numbers, ${d.options.length} buttons. Tap Import to load them.`;
-    $("imp-go").hidden = false;
-  } catch { impData = null; m.textContent = "That isn't an import file. Choose CC_Medical_Import.json."; }
-  e.target.value = "";
+const IMP_COLS = { // accepted column names (any case); first one is what the template uses
+  tag: ["tag", "tag number", "tag #"],
+  manufacturer: ["manufacturer", "make", "maker", "mfr", "brand"],
+  model: ["model", "module"],
+  category: ["category", "type"],
+  cond: ["condition", "cond"],
+  part_number: ["part number", "part #", "part no", "part", "pn", "p/n"],
+  serial: ["serial", "serial number", "serial #", "s/n", "sn"],
+  cost: ["cost", "cost ($)", "unit cost", "cost per unit", "price"],
+  dom: ["date of manufacture", "dom", "mfg date", "manufactured"],
+  location: ["bin", "location", "shelf"],
+  status: ["status"],
+  customer: ["customer"],
+  notes: ["notes", "note", "info"],
+  qty: ["quantity", "qty"],
+  row: ["spreadsheet row", "row"],
 };
+const IMP_STATUS = { "": "In stock", "in stock": "In stock", stock: "In stock", "on shelf": "In stock", pending: "Pending", reserved: "Pending",
+  "on loan": "On loan", loan: "On loan", loaner: "On loan", "out on rental": "Out on rental", rental: "Out on rental", rented: "Out on rental",
+  "sold / shipped": "Sold / shipped", sold: "Sold / shipped", shipped: "Sold / shipped", "sold/shipped": "Sold / shipped" };
+
+function parseCSV(text) {
+  text = text.replace(/^﻿/, "");
+  const first = text.split(/\r?\n/, 1)[0] || "";
+  const sep = (first.match(/\t/g) || []).length > (first.match(/,/g) || []).length ? "\t" : (first.match(/;/g) || []).length > (first.match(/,/g) || []).length ? ";" : ",";
+  const rows = []; let row = [], cell = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) { if (ch === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === sep) { row.push(cell); cell = ""; }
+    else if (ch === "\n" || ch === "\r") { if (ch === "\r" && text[i + 1] === "\n") i++; row.push(cell); rows.push(row); row = []; cell = ""; }
+    else cell += ch;
+  }
+  if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+  return rows;
+}
+const impDom = (v) => {
+  v = String(v || "").trim(); if (!v) return "";
+  let m;
+  if ((m = v.match(/^((?:19|20)\d\d)$/))) return m[1];
+  if ((m = v.match(/^((?:19|20)\d\d)[-/.](\d{1,2})(?:[-/.]\d{1,2})?$/))) return +m[2] >= 1 && +m[2] <= 12 ? `${m[1]}-${m[2].padStart(2, "0")}` : null;
+  if ((m = v.match(/^(\d{1,2})[-/.](?:\d{1,2}[-/.])?((?:19|20)\d\d)$/))) return +m[1] >= 1 && +m[1] <= 12 ? `${m[2]}-${m[1].padStart(2, "0")}` : null;
+  return null;
+};
+async function impFromCSV(text, fileName) {
+  const rows = parseCSV(text).filter((r) => r.some((c) => c.trim() !== ""));
+  if (rows.length < 2) throw new Error("That CSV has no rows under the header.");
+  const head = rows[0].map((h) => h.trim().toLowerCase());
+  const col = {}; for (const [k, names] of Object.entries(IMP_COLS)) { const i = head.findIndex((h) => names.includes(h)); if (i >= 0) col[k] = i; }
+  if (col.model == null && col.serial == null && col.manufacturer == null && col.part_number == null)
+    throw new Error("The first row needs column names. Include at least Model or Serial (see the template).");
+  const items = [], errors = [], seen = {};
+  for (let n = 1; n < rows.length; n++) {
+    const r = rows[n], g = (k) => (col[k] == null ? "" : String(r[col[k]] ?? "").trim());
+    const line = n + 1, rowNo = parseInt(g("row"), 10) || line;
+    const it = { manufacturer: g("manufacturer"), model: g("model"), category: g("category"), cond: g("cond"), part_number: g("part_number"),
+      serial: g("serial"), location: g("location").toUpperCase(), customer: g("customer"), notes: g("notes"), row: rowNo };
+    if (!it.manufacturer && !it.model && !it.serial && !it.part_number && !it.category) continue;
+    const st = IMP_STATUS[g("status").toLowerCase()];
+    if (!st) errors.push(`Line ${line}: status "${g("status")}" isn't one the app uses (In stock, Pending, On loan, Out on rental, Sold / shipped).`); else it.status = st;
+    const c = g("cost").replace(/[$,\s]/g, "");
+    if (c && !(Number.isFinite(+c) && +c >= 0)) errors.push(`Line ${line}: cost "${g("cost")}" isn't a dollar amount.`); else it.cost = c ? +c : null;
+    const d = impDom(g("dom")); if (d === null) errors.push(`Line ${line}: date of manufacture "${g("dom")}" should look like 2024-08 or 2024.`); else it.dom = d;
+    const qn = g("qty"); it.qty = qn ? parseInt(qn, 10) : 1; if (!(it.qty >= 1)) errors.push(`Line ${line}: quantity "${qn}" should be 1 or more.`);
+    if (/[eE]\+\d+$/.test(it.serial) || /[eE]\+\d+$/.test(it.part_number)) errors.push(`Line ${line}: "${it.serial || it.part_number}" looks like a number Excel shortened. Retype it as text.`);
+    it.name = [it.manufacturer, it.model].filter(Boolean).join(" ") || it.category || it.part_number || "Item";
+    let tag = g("tag").toUpperCase();
+    if (tag && !/^CC-[A-Z0-9-]+$/.test(tag)) { errors.push(`Line ${line}: tag "${g("tag")}" should look like CC-261004-7K2Q, or leave it blank.`); tag = ""; }
+    if (!tag) { // same row → same tag, so importing the file again skips it
+      const key = [it.manufacturer, it.model, it.category, it.cond, it.part_number, it.serial, it.location, it.status, it.customer, it.notes].join("|").toLowerCase();
+      seen[key] = (seen[key] || 0) + 1;
+      const h = hexOf(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(key + "#" + seen[key])));
+      tag = "CC-CSV-" + h.slice(0, 8).toUpperCase();
+    }
+    it.tag = tag;
+    it.src = /^CC-IMP-/.test(tag) ? "Inventory_Ultrasound.xlsx" : fileName;
+    items.push(it);
+  }
+  const tags = new Set(); for (const it of items) { if (tags.has(it.tag)) errors.push(`Tag ${it.tag} is on more than one line.`); tags.add(it.tag); }
+  // Product History: one entry per serial; its latest record is the one still open, else the last line.
+  const bySer = new Map(); for (const it of items) if (it.serial) { const k = it.serial.toUpperCase(); if (!bySer.has(k)) bySer.set(k, []); bySer.get(k).push(it); }
+  const serials = [...bySer.values()].map((rs) => { const open = rs.filter((x) => !CLOSED_STATUS.includes(x.status)); const pool = open.length ? open : rs, l = pool[pool.length - 1];
+    return { serial: rs[0].serial, manufacturer: l.manufacturer, model: l.model, part_number: l.part_number, category: l.category, dom: (rs.find((x) => x.dom) || {}).dom || "", times: rs.length, last_item_id: l.tag }; });
+  const opts = new Map(); const addO = (k, v, p = "") => { if (v) opts.set(`${k}|${v.toLowerCase()}|${p.toLowerCase()}`, [k, v, p]); };
+  for (const it of items) { addO("manufacturer", it.manufacturer); addO("model", it.model, it.manufacturer); addO("category", it.category); addO("condition", it.cond); it.location.split("/").forEach((b) => addO("location", b.trim())); }
+  return { items, customers: [...new Set(items.map((i) => i.customer).filter(Boolean))], serials, options: [...opts.values()], errors };
+}
+const hexOf = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+
+async function impLoad(f) {
+  const m = $("imp-msg"), go = $("imp-go"); m.hidden = false; go.hidden = true; impData = null; m.classList.remove("bad");
+  const name = f.name || "file", lower = name.toLowerCase();
+  try {
+    if (/\.(xlsx|xls|numbers)$/.test(lower)) throw new Error("Save the spreadsheet as CSV first (in Excel: File → Save As → CSV UTF-8), then drop that file here.");
+    const text = await f.text(); let d;
+    if (lower.endsWith(".json")) {
+      d = JSON.parse(text); if (d.format !== "cc-medical-import-1" || !Array.isArray(d.items)) throw new Error("That isn't an import file.");
+      d.errors = [];
+    } else d = await impFromCSV(text, name);
+    if (d.errors.length) {
+      m.classList.add("bad");
+      m.innerHTML = `<b>${d.errors.length} line${d.errors.length === 1 ? "" : "s"} to fix first. Nothing was imported.</b><br>` + d.errors.slice(0, 8).map(esc).join("<br>") + (d.errors.length > 8 ? `<br>…and ${d.errors.length - 8} more.` : "");
+      return;
+    }
+    if (!d.items.length) throw new Error("No rows to import in that file.");
+    impData = d;
+    m.textContent = `${esc(name)}: ${d.items.length.toLocaleString()} records, ${d.customers.length} customers, ${d.serials.length.toLocaleString()} serial numbers. Tap Import to load them.`;
+    go.hidden = false;
+  } catch (e) { m.classList.add("bad"); m.textContent = e instanceof SyntaxError ? "That file couldn't be read." : e.message; }
+}
+$("imp-file").onchange = (e) => { const f = e.target.files && e.target.files[0]; if (f) impLoad(f); e.target.value = ""; };
+{ // drag and drop onto the import box
+  const z = $("imp-drop");
+  ["dragenter", "dragover"].forEach((ev) => z.addEventListener(ev, (e) => { e.preventDefault(); z.classList.add("over"); }));
+  ["dragleave", "dragend"].forEach((ev) => z.addEventListener(ev, () => z.classList.remove("over")));
+  z.addEventListener("drop", (e) => { e.preventDefault(); z.classList.remove("over"); const f = e.dataTransfer && e.dataTransfer.files[0]; if (f) impLoad(f); });
+  // a file dropped anywhere else shouldn't make the browser leave the app
+  window.addEventListener("dragover", (e) => { if (e.dataTransfer && [...e.dataTransfer.types].includes("Files")) e.preventDefault(); });
+  window.addEventListener("drop", (e) => { if (!z.contains(e.target)) e.preventDefault(); });
+}
 $("imp-go").onclick = async () => {
   const d = impData; if (!d) return;
   const go = $("imp-go"), m = $("imp-msg"); go.disabled = true;

@@ -368,3 +368,11 @@ button,a,label,summary,select,input{touch-action:manipulation}
   .scanbox .actions{margin-top:auto}
   .torch{min-height:52px;justify-self:stretch}
 }
+
+/* import drop zone */
+.dropzone{display:grid;justify-items:center;gap:8px;text-align:center;padding:22px 16px;margin:12px 0;border:2px dashed var(--line);border-radius:var(--r);color:var(--muted);background:var(--surface);transition:border-color .12s,background .12s}
+.dropzone.over{border-color:var(--brand-2);background:var(--brand-soft);color:var(--brand-deep)}
+.dropzone span{font-weight:600}
+#imp-msg.bad{color:var(--bad)}
+@media (hover:none){.dropzone > span{display:none}} /* phones: no dragging, just the button */
+#imp a{color:var(--brand-2);font-weight:600}

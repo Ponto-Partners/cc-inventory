@@ -12,6 +12,7 @@ Step 2 (sql):     python3 tools/import_inventory.py sql Import_Review.xlsx impor
 
 Step 2, simpler (json): python3 tools/import_inventory.py json Import_Review.xlsx CC_Medical_Import.json
     Same import as a file an admin uploads in the app: Admin > Import spreadsheet data.
+    Or (csv): python3 tools/import_inventory.py csv Import_Review.xlsx CC_Medical_Inventory.csv
 
 Needs: Python 3.9+ and openpyxl (pip install openpyxl).
 Re-running the SQL is safe: rows already imported are skipped.
@@ -603,14 +604,35 @@ def write_json(rows, dst):
     return {"records": len(data["items"]), "customers": len(data["customers"]), "serials": len(serials), "options": len(data["options"])}
 
 
+CSV_COLUMNS = ["Tag", "Manufacturer", "Model", "Category", "Condition", "Part number", "Serial", "Cost",
+               "Date of manufacture", "Bin", "Status", "Customer", "Notes", "Spreadsheet row"]
+
+
+def write_csv(rows, dst):
+    """The same import as a CSV that opens in Excel. The app's Admin page imports it directly."""
+    import csv
+    with open(dst, "w", encoding="utf-8-sig", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(CSV_COLUMNS)
+        for r in rows:
+            cost = r["Cost ($)"]
+            w.writerow([r["Tag"], r["Manufacturer"], r["Model"], r["Category"], r["Condition"], r["Part number"], r["Serial"],
+                        "" if cost in (None, "") else (int(cost) if float(cost).is_integer() else cost),
+                        r["DOM"], r["Bin"], r["Status"], r["Customer"], r["Notes"], r["Row"]])
+    return {"records": len(rows)}
+
+
 if __name__ == "__main__":
-    if len(sys.argv) != 4 or sys.argv[1] not in ("review", "sql", "json"):
+    if len(sys.argv) != 4 or sys.argv[1] not in ("review", "sql", "json", "csv"):
         sys.exit(__doc__)
     if sys.argv[1] == "review":
         rows = build_rows(sys.argv[2])
         write_review(rows, sys.argv[3])
         flagged = sum(1 for r in rows if r["Check"])
         print(f"Wrote {sys.argv[3]}: {len(rows)} rows, {flagged} marked CHECK.")
+    elif sys.argv[1] == "csv":
+        stats = write_csv(read_review(sys.argv[2]), sys.argv[3])
+        print(f"Wrote {sys.argv[3]}: {stats}")
     elif sys.argv[1] == "json":
         stats = write_json(read_review(sys.argv[2]), sys.argv[3])
         print(f"Wrote {sys.argv[3]}: {stats}")

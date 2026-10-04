@@ -508,12 +508,14 @@ async function api(req, env, url) {
       const tag = str(r.tag, 40); if (!/^CC-[A-Z0-9-]+$/.test(tag)) fail(400, "An import record has a bad tag number.");
       const serial = str(r.serial, 80), status = str(r.status, 40), loc = str(r.location, 40), row = parseInt(r.row, 10) || 0;
       const cust = str(r.customer, 120);
+      if (!STATUS.stock.includes(status)) fail(400, `Row ${row}: status "${status}" isn't one the app uses.`);
+      const qty = Math.min(100000, Math.max(1, parseInt(r.qty, 10) || 1)), src = str(r.src, 120) || "Inventory_Ultrasound.xlsx";
       stmts.push(env.DB.prepare(`INSERT OR IGNORE INTO items (id, kind, name, category, cond, manufacturer, model, part_number, serial, ref, cost, dom, source,
         qty, location, customer_id, status, problems, notes, received_by, received_at, updated_at)
-        VALUES (?, 'stock', ?, ?, ?, ?, ?, ?, ?, '', ?, ?, ?, 1, ?, ${cust ? "(SELECT id FROM customers WHERE name = ? COLLATE NOCASE LIMIT 1)" : "?"}, ?, '', ?, ?, ?, ?)`)
+        VALUES (?, 'stock', ?, ?, ?, ?, ?, ?, ?, '', ?, ?, ?, ?, ?, ${cust ? "(SELECT id FROM customers WHERE name = ? COLLATE NOCASE LIMIT 1)" : "?"}, ?, '', ?, ?, ?, ?)`)
         .bind(tag, str(r.name, 200), str(r.category, 80), str(r.cond, 80), str(r.manufacturer, 80), str(r.model, 120), str(r.part_number, 80), serial,
-          soft(money, r.cost, null), soft(domStr, r.dom, ""), "import:" + row, loc, cust || null, status, str(r.notes, 2000), by, t, t));
-      const what = `Imported from Inventory_Ultrasound.xlsx, row ${row} (${status}${loc ? ", bin " + loc : ""})`;
+          soft(money, r.cost, null), soft(domStr, r.dom, ""), "import:" + row, qty, loc, cust || null, status, str(r.notes, 2000), by, t, t));
+      const what = `Imported from ${src}, row ${row} (${status}${loc ? ", bin " + loc : ""})`;
       stmts.push(env.DB.prepare(`INSERT INTO history (item_id, at, by, what) SELECT ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM history WHERE item_id = ? AND what = ?)`).bind(tag, t, by, what, tag, what));
       if (serial) stmts.push(env.DB.prepare(`INSERT INTO serial_events (serial, at, by, item_id, kind, what) SELECT ?, ?, ?, ?, 'stock', ? WHERE NOT EXISTS (SELECT 1 FROM serial_events WHERE item_id = ? AND what = ?)`).bind(serial, t, by, tag, what, tag, what));
     }
