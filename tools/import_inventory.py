@@ -410,7 +410,7 @@ def write_review(rows, dst):
     wh = wb.create_sheet("How to review", 0)
     lines = [
         ("CC Medical Inventory - import review", Font(name="Arial", size=14, bold=True, color="6A4694")),
-        ("Each row of Inventory_Ultrasound.xlsx (Location sheet) becomes one record in the app. Grey columns are the original; yellow columns are what the app will store.", body),
+        ("Each row of Inventory_Ultrasound.xlsx (Location sheet) becomes one record in the app. Gray columns are the original; yellow columns are what the app will store.", body),
         ("1. On the Rows sheet, filter Check = CHECK and fix those rows first. The Why column says what to look at.", body),
         ("2. Then skim the Models sheet: one line per model with its manufacturer. A wrong manufacturer there means fixing it on the Rows sheet (filter by Model).", body),
         ("3. On the Customers sheet, check the customer names made from the INFO notes. To rename one, change it in the Rows sheet's Customer column.", body),
