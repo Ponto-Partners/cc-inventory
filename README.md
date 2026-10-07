@@ -199,7 +199,7 @@ The list that turns hospital names in the INFO column into customers is CC Medic
    ```
    python3 tools/import_inventory.py review Inventory_Ultrasound.xlsx Import_Review.xlsx
    ```
-   One row per spreadsheet row: the original columns (grey) beside what the app will store (yellow). Rows that need a person are marked **CHECK** with the reason. The **Models** sheet lists every model with its manufacturer and counts; the **Customers** sheet lists the customers made from INFO notes.
+   One row per spreadsheet row: the original columns (gray) beside what the app will store (yellow). Rows that need a person are marked **CHECK** with the reason. The **Models** sheet lists every model with its manufacturer and counts; the **Customers** sheet lists the customers made from INFO notes.
 2. **Fix** the CHECK rows and anything else that's wrong, in the yellow columns only.
 3. **Make the import file**
    ```
