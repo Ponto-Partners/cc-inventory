@@ -11,7 +11,7 @@ Step 2 (sql):     python3 tools/import_inventory.py sql Import_Review.xlsx impor
     npx wrangler d1 execute cc-inventory --remote --file=import.sql
 
 Step 2, simpler (json): python3 tools/import_inventory.py json Import_Review.xlsx CC_Medical_Import.json
-    Same import as a file an admin uploads in the app: Admin > Import spreadsheet data.
+    Same import as a file an admin uploads in the app: Admin > Import inventory.
     Or (csv): python3 tools/import_inventory.py csv Import_Review.xlsx CC_Medical_Inventory.csv
 
 Needs: Python 3.9+ and openpyxl (pip install openpyxl).

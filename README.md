@@ -15,7 +15,8 @@ It runs on Cloudflare:
 **At go-live:**
 1. Upgrade the Cloudflare account to Workers Paid.
 2. In `wrangler.toml`, change `PBKDF2_ITERATIONS = "20000"` to `"100000"`.
-3. Push to GitHub (it deploys itself), or run `npx wrangler deploy`.
+3. Push to GitHub (it deploys itself).
+4. Make the GitHub repository private.
 
 Nobody has to reset a password: each one is re-saved at full strength the next time that person signs in. Workers Paid also keeps 30 days of database restore points instead of 7.
 
@@ -23,53 +24,45 @@ Nobody has to reset a password: each one is re-saved at full strength the next t
 
 ```
 package.json                  Pins the Wrangler version and holds shortcuts: npm run dev / deploy / db:init / db:backup
-wrangler.toml                 Cloudflare settings (you paste your database ID here)
+wrangler.toml                 Cloudflare settings: Worker name, database ID, password-hashing strength
 schema.sql                    Creates the database tables and the starting buttons
 src/worker.js                 The server: sign-in, inventory, Product History, customers, users
 public/                       The app people use: index.html, app.css, app.js, logo.svg, logo-white.svg
 public/icons/, manifest      Home-screen icon and install settings for phones
 public/vendor/                Barcode scanner (html5-qrcode, Apache-2.0) and QR code maker (qrcode-generator, MIT)
-tools/import_inventory.py     Turns Inventory_Ultrasound.xlsx into a review workbook, then into import.sql
+tools/import_inventory.py     Turns Inventory_Ultrasound.xlsx into a review workbook, then into a CSV/JSON/SQL import file
+tools/customer_names.*.json   Example of the hospital-name list the importer uses (the real one stays off GitHub)
 migrations/                   Only for a database set up with an earlier version of schema.sql
 ```
 
-## Deploy it (about 15 minutes, one time)
+## How it's deployed now
 
-You need [Node.js](https://nodejs.org) 18 or newer and a Cloudflare account.
+| What | Where |
+|---|---|
+| Live app | https://ccmedical.app (also https://cc-medical-inventory.rciesco-bff.workers.dev) |
+| Code | GitHub `Ponto-Partners/cc-inventory`, branch `main` (public while testing; make it private at launch) |
+| Hosting | Cloudflare account of Ponto Partners (Richard), Worker `cc-medical-inventory`, Workers Free plan |
+| Database | Cloudflare D1 `cc-inventory`, ID `f5dd7ddb-dbf4-40ec-b447-8e0ae8ef1fc0`, western North America |
+| Deploys | Cloudflare Workers Builds: every push to `main` deploys in about a minute. No manual deploy step |
 
-1. **Open a terminal in this folder and sign in to Cloudflare**
-   ```
-   npx wrangler login
-   ```
-2. **Create the database**
-   ```
-   npx wrangler d1 create cc-inventory
-   ```
-   It prints a `database_id`. Paste it into `wrangler.toml` in place of `REPLACE_WITH_YOUR_DATABASE_ID`.
-3. **Create the tables and starting buttons** (if you set up an earlier version of this app, run `migrations/upgrade-from-first-version.sql` first)
-   ```
-   npx wrangler d1 execute cc-inventory --remote --file=schema.sql
-   ```
-4. **Load the existing inventory** (once, before staff start receiving). See *Importing the spreadsheet* below; the last step is:
-   ```
-   npx wrangler d1 execute cc-inventory --remote --file=import.sql
-   ```
-5. **Publish**
-   ```
-   npx wrangler deploy
-   ```
-   It prints your address, like `https://cc-medical-inventory.<your-account>.workers.dev`.
-6. **Create the admin account right away.** Open that address. The first visit shows **Create the admin account**. Whoever completes it becomes the admin, so do it immediately after deploying.
-7. **Add your team** with the **Admin** button (top right, next to your name). Give each person their username and temporary password. They can change it from the menu under their name.
+## Set it up from scratch (for example, on CC Medical's own Cloudflare account)
 
-### Deploy from GitHub (recommended)
-Keep this folder in a private GitHub repository and let Cloudflare deploy every push to `main`:
+You need a Cloudflare account. The command-line steps also need [Node.js](https://nodejs.org) 18 or newer.
 
-1. Push this folder to a private GitHub repository. The `.gitignore` keeps spreadsheets, `import.sql` and backups out of it, so customer data never lands in GitHub.
-2. In the Cloudflare dashboard: **Workers & Pages** → the `cc-medical-inventory` Worker → **Settings** → **Builds** → **Connect**, and pick the repository. The Worker's name must match `name` in `wrangler.toml`.
-3. Leave the deploy command as `npx wrangler deploy`. Each push to `main` now deploys automatically; other branches get a preview link.
+1. **Create the database:** in the Cloudflare dashboard's **D1** section, create a database named `cc-inventory` (or run `npx wrangler d1 create cc-inventory`).
+2. **Put its ID in `wrangler.toml`** (`database_id = "…"`) and push that change to GitHub.
+3. **Create the tables and starting buttons** by running `schema.sql` against it: paste the file into the database's **Console** in the dashboard, or run `npx wrangler d1 execute cc-inventory --remote --file=schema.sql`. (A database made with an earlier version of this app runs `migrations/upgrade-from-first-version.sql` first.)
+4. **Connect the GitHub repository:** **Workers & Pages → Create → Import a repository**, pick the repo, and set:
+   - **Project name:** `cc-medical-inventory` (must match `name` in `wrangler.toml`)
+   - **Build command:** blank · **Deploy command:** `npx wrangler deploy` · **Path:** `/`
+   - **API token / variables:** leave the token on "create new", add no variables (settings live in `wrangler.toml`)
+   - **Preview builds:** off (previews would use the live database) · **Cloudflare Access:** off (the app has its own sign-in)
+5. **Deploy.** Cloudflare prints the address, like `https://cc-medical-inventory.<account>.workers.dev`.
+6. **Create the admin account right away.** The very first visit shows **Create the admin account**; whoever completes it becomes the first admin.
+7. **Load the inventory:** **Admin → Import inventory**, drop `CC_Medical_Inventory.csv` (see *Importing the spreadsheet*).
+8. **Add your team** under **Admin → Add a user**.
 
-Builds are included on the free plan (3,000 build minutes a month). The database setup (`schema.sql`) and the one-time import are still run once from a computer with `npx wrangler d1 execute …`; deploys never touch the data.
+Deploys never touch the data. Database setup and the import happen once.
 
 ### Use your own domain (optional)
 In the Cloudflare dashboard: **Workers & Pages → cc-medical-inventory → Settings → Domains & Routes → Add → Custom domain**, for example `ccmedical.app` (in use now) or `inventory.ccmedicalhs.com`. The domain's DNS has to be on Cloudflare. A new domain's security certificate takes a few minutes to issue; until then browsers show ERR_SSL_VERSION_OR_CIPHER_MISMATCH.
@@ -81,6 +74,14 @@ The app uses CC Medical's own logo files (`public/logo.svg` and `public/logo-whi
 --brand-2:#6A4694;   /* CC Medical purple: buttons, selections, sign-in screen */
 ```
 To update the logo later, replace those two files and run `npx wrangler deploy`.
+
+## Signing in
+
+- The first visit to a brand-new install shows **Create the admin account**. After that, the page only signs people in; there's no public sign-up, so nobody outside CC Medical can make an account.
+- Usernames can be a plain name (`maria`) or an email address (`rciesco@pontopartners.com`). Capitalization doesn't matter.
+- The eye icon in a password box shows or hides what was typed.
+- Sessions last 30 days on each device. Five wrong passwords lock that account for 10 minutes.
+- Forgot a password: an admin sets a new one under **Admin** (**Reset password**); that also signs the person out everywhere. Anyone can change their own password from the menu under their name.
 
 ## Tabs
 
@@ -122,8 +123,8 @@ Details are quantity, part number, serial, cost per unit, date of manufacture (Y
 
 - Any screen has **+ Add new**. Whatever is typed becomes a button for everyone from then on.
 - The chosen answers stay at the top. Tap one to go back and change it.
-- Saving shows a tag number such as `CC-261003-7K2Q` to write on the box.
-- **Another of the same** keeps every answer and clears the serial number, for receiving a batch quickly.
+- Saving shows a tag number such as `CC-261003-7K2Q` to write on the box (or **Print label**).
+- **Another of the same** keeps the type, customer, manufacturer, model, category, condition, part number, cost, bin and RMA, and clears the serial, date of manufacture, notes and problems (quantity goes back to 1), for receiving a batch quickly.
 - Barcode scanners that type like a keyboard work in the serial field.
 
 ### Starting buttons
@@ -169,6 +170,7 @@ It gets the CC Medical icon, opens full-screen with no browser bar, and stays si
 - Each label has a QR code, the tag number, the make and model, the serial (or part number), the bin, and the date of manufacture.
 - The QR code holds a link to the record. The app's Scan button opens it, and so does a phone's own camera app.
 - Two sizes: **label printer, 2.25 × 1.25 in** (DYMO 30334 and similar) and **Letter sheets of 30 (Avery 5160)**. The app remembers the choice on each device. In the print dialog, pick the matching paper and set margins to None and scale to 100%.
+- **Print labels from https://ccmedical.app.** The QR code holds the address the label was printed from. The app's own Scan button reads any CC Medical label regardless, but a phone's camera app follows the address, so labels printed from the temporary `workers.dev` address would stop opening in the camera app if that address ever goes away.
 
 ## Product History (serial number registry)
 
@@ -215,6 +217,8 @@ The list that turns hospital names in the INFO column into customers is CC Medic
 - The app checks every line first and imports nothing until all of them are good, listing the lines to fix (bad status, cost, date, or a serial Excel turned into a number like `2.86E+24`).
 - Lines without a tag get one made from their contents, so importing the same file again skips them.
 - Customers named in the Customer column are added if new; models, manufacturers and bins become buttons.
+- Serial numbers new to the app get a Product History entry. A serial already in Product History keeps its existing entry (its times-received count isn't raised), so a unit that's physically coming back should be received through **Receive New Inventory**, not imported.
+- Only admins can import.
 - Excel tip: format serial and part-number columns as **Text** before typing, or Excel may shorten long numbers. Save with **File → Save As → CSV UTF-8**. An .xlsx can't be dropped in directly.
 
 The manufacturer written in the untitled column beside a shelf space's first row (GE on A1–A3, Philips on A4, B1 and B2) is applied to every unit stored in that space, unless MODULE names a different maker; rows where the model suggests a different maker than the shelf are marked CHECK.
@@ -230,6 +234,7 @@ There are two kinds of users:
 | Receive, search, edit, change status, send out | ✓ | ✓ |
 | Add and delete customers, items and buttons | ✓ | ✓ |
 | Add users, reset passwords, remove or restore access | | ✓ |
+| Import inventory from a CSV or import file | | ✓ |
 
 Admins see an **Admin** button next to their name at the top. It opens the user access page. Standard users don't see it.
 
@@ -240,7 +245,7 @@ npx wrangler d1 export cc-inventory --remote --output=backup.sql
 ```
 
 ## Making changes later
-Edit the files and run `npx wrangler deploy`. Data in the database isn't touched by a deploy.
+Push to `main` on GitHub; Cloudflare deploys it in about a minute. (Or run `npx wrangler deploy` from this folder.) Data in the database isn't touched by a deploy.
 
 ## How the app stays up to date
 Each open device refreshes every 30 seconds while nobody is typing. The first load fetches everything; later refreshes ask only for what changed since the last one (`/api/data?since=`), so a quiet warehouse costs almost nothing in database reads.

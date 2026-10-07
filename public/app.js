@@ -778,7 +778,8 @@ function impShow(state) { // state: {file, kind: ready|already|bad|busy|done, li
   m.classList.toggle("bad", !!state && state.kind === "bad");
   if (!state) { card.innerHTML = ""; return; }
   const badge = { ready: "Ready to import", already: "Already imported", bad: "Needs fixing", busy: "Importing…", done: "Imported" }[state.kind];
-  card.innerHTML = `<div class="dz-file">${FILE_ICON}<div><b>${esc(state.file.name)}</b><small>${fmtSize(state.file.size)} · added ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</small></div><span class="dz-badge">${badge}</span></div>
+  const added = state.file._added || (state.file._added = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }));
+  card.innerHTML = `<div class="dz-file">${FILE_ICON}<div><b>${esc(state.file.name)}</b><small>${fmtSize(state.file.size)} · added ${added}</small></div><span class="dz-badge">${badge}</span></div>
     ${state.line ? `<p class="dz-line">${state.line}</p>` : ""}
     ${state.kind === "busy" ? `<div class="dz-bar"><i style="width:${state.pct || 0}%"></i></div>` : ""}
     <div class="actions">${state.kind === "ready" ? `<button class="btn primary" type="button" id="imp-go">Import</button>` : ""}

@@ -219,7 +219,7 @@ async function api(req, env, url) {
   if (!me) fail(401, "Please sign in.");
   const isAdmin = me.role === "admin";
   // Two roles: admin (also adds and removes user access) and standard (everything else).
-  const adminOnly = () => { if (!isAdmin) fail(403, "Only an admin can add or remove access."); };
+  const adminOnly = (msg = "Only an admin can add or remove access.") => { if (!isAdmin) fail(403, msg); };
   const who = me.name || me.username;
   // Item history line, mirrored into the permanent serial log when the item has a serial number.
   const log = (itemId, t, what, serial, kind) => [
@@ -488,11 +488,12 @@ async function api(req, env, url) {
     }
   }
 
-  /* ----- users (admin) ----- */
-  // One-time load of the spreadsheet import (admin only). The admin page sends the import file
-  // made by tools/import_inventory.py in small parts. Safe to repeat: anything already there is skipped.
+  /* ----- import (admin) ----- */
+  // Bulk import from the Admin page: the CSV or .json import file, sent in small parts.
+  // Safe to repeat: anything already there is skipped. New serials are added to Product History;
+  // serials already there keep their existing entry (receive a returning unit through Receive instead).
   if (path === "/api/import" && method === "POST") {
-    adminOnly();
+    adminOnly("Only an admin can import inventory.");
     const t = /^\d{4}-\d\d-\d\dT[\d:.]+Z$/.test(String(body.at || "")) ? body.at : nowIso();
     const by = "Spreadsheet import";
     const soft = (f, v, dflt) => { try { return f(v); } catch { return dflt; } };
@@ -538,6 +539,7 @@ async function api(req, env, url) {
     return json({ ok: true, added });
   }
 
+  /* ----- users (admin) ----- */
   if (path === "/api/users" && method === "GET") {
     adminOnly();
     const r = await env.DB.prepare(`SELECT id, username, name, role, active FROM users ORDER BY name COLLATE NOCASE`).all();
